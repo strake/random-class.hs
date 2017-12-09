@@ -6,8 +6,10 @@ import Control.Monad.Primitive
 import Control.Monad.Trans.Reader
 import qualified Control.Monad.Trans.State as M
 import Data.Primitive.MutVar
+import Data.Semigroup
 import Data.Tuple (swap)
 import Data.Void
+import Numeric.Natural
 
 import Util
 
@@ -17,9 +19,18 @@ class Gen g where
     type Native g
     uniformNative :: M.State g (Native g)
     uniformNativeM :: PrimMonad m => ReaderT (Mut (PrimState m) g) m (Native g)
+    skip :: Natural -> g -> g
+    skipM :: PrimMonad m => Natural -> ReaderT (Mut (PrimState m) g) m ()
+
     default uniformNativeM :: (Mut (PrimState m) g ~ MutVar (PrimState m) g,
                                PrimMonad m) => ReaderT (Mut (PrimState m) g) m (Native g)
     uniformNativeM = ReaderT $ flip atomicModifyMutVar $ swap . M.runState uniformNative
+
+    skip n = appEndo . stimes n . Endo $ M.execState uniformNative
+
+    default skipM :: (Mut (PrimState m) g ~ MutVar (PrimState m) g,
+                      PrimMonad m) => Natural -> ReaderT (Mut (PrimState m) g) m ()
+    skipM = flip mtimesA (() <$ uniformNativeM)
 
 class Split g where
     split :: g -> (g, g)
