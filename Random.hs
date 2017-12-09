@@ -47,8 +47,9 @@ uniformM :: (Gen g, Uniform (Native g) a, PrimMonad m) => ReaderT (Mut (PrimStat
 uniformM = liftUniform uniformNativeM
 
 instance {-# OVERLAPPABLE #-} (Bounded a, Enum a, Bounded b, Enum b) => Uniform b a where
-    liftUniform = fmap (toEnum' . foldr (\ m n -> card @b * n + fromEnum' m) 0)
-                . replicateA ((card @a + card @b - 1) `div` card @b)
+    liftUniform = untilJust
+                . fmap (toEnumMay' . foldr (\ m n -> card @b * n + fromEnum' m) 0)
+                . replicateA @_ @[] ((card @a + card @b - 1) `div` card @b)
 
 instance Uniform Void a where
     liftUniform = fmap $ \ case
