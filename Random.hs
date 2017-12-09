@@ -80,11 +80,11 @@ range' (a, b) = untilJust
 {-# RULES "range'/()" range' = (pure . pure . pure) () #-}
 {-# RULES "range'"    range' = pure id #-}
 
-weighted :: (Gen g, Bounded (Native g), Enum (Native g), Uniform a)
+weighted :: (Gen g, Bounded (Native g), Enum (Native g))
          => NonEmpty (a, Ratio Natural) -> M.State g a
 weighted = weighted' range
 
-weightedM :: (Gen g, Bounded (Native g), Enum (Native g), Uniform a, PrimMonad m)
+weightedM :: (Gen g, Bounded (Native g), Enum (Native g), PrimMonad m)
           => NonEmpty (a, Ratio Natural) -> ReaderT (Mut (PrimState m) g) m a
 weightedM = weighted' rangeM
 
