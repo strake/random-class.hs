@@ -26,10 +26,10 @@ library
                      , EmptyCase
                      , TypeApplications
                      , ScopedTypeVariables
+                     , InstanceSigs
                      , PolyKinds
                      , TypeFamilies
                      , TypeFamilyDependencies
-                     , MultiParamTypeClasses
                      , FlexibleContexts
                      , FlexibleInstances
                      , PackageImports

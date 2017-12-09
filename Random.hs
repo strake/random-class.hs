@@ -1,4 +1,5 @@
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Random where
 
@@ -8,7 +9,6 @@ import qualified Control.Monad.Trans.State as M
 import Data.Primitive.MutVar
 import Data.Semigroup
 import Data.Tuple (swap)
-import Data.Void
 import Numeric.Natural
 
 import Util
@@ -35,18 +35,18 @@ class Gen g where
 class Split g where
     split :: g -> (g, g)
 
-class Uniform b a where
-    liftUniform :: Monad m => m b -> m a
+class Uniform a where
+    liftUniform :: (Bounded b, Enum b, Monad m) => m b -> m a
 
-instance Uniform a a where liftUniform = id
-
-uniform :: (Gen g, Uniform (Native g) a) => M.State g a
+uniform :: (Gen g, Bounded (Native g), Enum (Native g), Uniform a) => M.State g a
 uniform = liftUniform uniformNative
 
-uniformM :: (Gen g, Uniform (Native g) a, PrimMonad m) => ReaderT (Mut (PrimState m) g) m a
+uniformM :: (Gen g, Bounded (Native g), Enum (Native g), Uniform a, PrimMonad m)
+         => ReaderT (Mut (PrimState m) g) m a
 uniformM = liftUniform uniformNativeM
 
-instance {-# OVERLAPPABLE #-} (Bounded a, Enum a, Bounded b, Enum b) => Uniform b a where
+instance {-# OVERLAPPABLE #-} (Bounded a, Enum a) => Uniform a where
+    liftUniform :: ∀ b m . (Bounded b, Enum b, Monad m) => m b -> m a
     liftUniform = untilJust
                 . fmap (toEnumMayWrap' . foldr (\ m n -> card @b * n + fromEnum' m) 0)
                 . replicateA @_ @[] r
@@ -56,8 +56,5 @@ instance {-# OVERLAPPABLE #-} (Bounded a, Enum a, Bounded b, Enum b) => Uniform 
 
             r = (card @a + card @b - 1) `div` card @b
 
-instance Uniform Void a where
-    liftUniform = fmap $ \ case
-
-instance Uniform a () where
-    liftUniform = (() <$)
+instance Uniform () where
+    liftUniform _ = pure ()
