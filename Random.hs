@@ -1,11 +1,12 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Random where
+module Random (Gen (..), Split (..), Uniform (..), uniform, uniformM, range, rangeM) where
 
 import Control.Monad.Primitive
 import Control.Monad.Trans.Reader
 import qualified Control.Monad.Trans.State as M
+import qualified Data.List as L
 import Data.Primitive.MutVar
 import Data.Semigroup
 import Data.Tuple (swap)
@@ -46,15 +47,29 @@ uniformM :: (Gen g, Bounded (Native g), Enum (Native g), Uniform a, PrimMonad m)
 uniformM = liftUniform uniformNativeM
 
 instance {-# OVERLAPPABLE #-} (Bounded a, Enum a) => Uniform a where
-    liftUniform :: ∀ b m . (Bounded b, Enum b, Monad m) => m b -> m a
-    liftUniform = untilJust
-                . fmap (toEnumMayWrap' . foldr (\ m n -> card @b * n + fromEnum' m) 0)
-                . replicateA @_ @[] r
-      where toEnumMayWrap' :: Natural -> Maybe a
-            toEnumMayWrap' n | n > r * card @b `div` card @a * card @a = Nothing
-                             | otherwise = toEnumMay' (n `div` card @a)
-
-            r = (card @a + card @b - 1) `div` card @b
+    liftUniform = range' (minBound, maxBound)
 
 instance Uniform () where
     liftUniform _ = pure ()
+
+range :: (Gen g, Bounded (Native g), Enum (Native g), Enum a) => (a, a) -> M.State g a
+range = flip range' uniformNative
+
+rangeM :: (Gen g, Bounded (Native g), Enum (Native g), Enum a, PrimMonad m)
+       => (a, a) -> ReaderT (Mut (PrimState m) g) m a
+rangeM = flip range' uniformNativeM
+
+range' :: ∀ a b m . (Enum a, Bounded b, Enum b, Monad m) => (a, a) -> m b -> m a
+range' (a, b) = untilJust
+              . fmap (toEnumMayWrap' . foldr (\ m n -> card @b * n + fromEnum' m) 0)
+              . replicateA @_ @[] r
+  where toEnumMayWrap' :: Natural -> Maybe a
+        toEnumMayWrap' n | n > r * card @b `div` card_a * card_a = Nothing
+                         | otherwise = [a..b] !!? (n `div` card_a)
+
+        r = (card_a + card @b - 1) `div` card @b
+
+        card_a = L.genericLength [a..b]
+
+{-# INLINE[1] range' #-}
+{-# RULES "range'" range' = pure id #-}
