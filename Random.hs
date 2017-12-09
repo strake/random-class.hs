@@ -1,13 +1,21 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Random (Gen (..), Split (..), Uniform (..), uniform, uniformM, range, rangeM) where
+module Random (Gen (..), Split (..), Uniform (..),
+               uniform,  range,  weighted,
+               uniformM, rangeM, weightedM) where
 
+import Control.Applicative
 import Control.Monad.Primitive
 import Control.Monad.Trans.Reader
 import qualified Control.Monad.Trans.State as M
+import Data.Bool
+import Data.Foldable
 import qualified Data.List as L
+import Data.List.NonEmpty (NonEmpty)
+import qualified Data.List.NonEmpty as NE
 import Data.Primitive.MutVar
+import Data.Ratio
 import Data.Semigroup
 import Data.Tuple (swap)
 import Numeric.Natural
@@ -73,3 +81,21 @@ range' (a, b) = untilJust
 
 {-# INLINE[1] range' #-}
 {-# RULES "range'" range' = pure id #-}
+
+weighted :: (Gen g, Bounded (Native g), Enum (Native g), Uniform a)
+         => NonEmpty (a, Ratio Natural) -> M.State g a
+weighted = weighted' range
+
+weightedM :: (Gen g, Bounded (Native g), Enum (Native g), Uniform a, PrimMonad m)
+          => NonEmpty (a, Ratio Natural) -> ReaderT (Mut (PrimState m) g) m a
+weightedM = weighted' rangeM
+
+weighted' :: Functor f
+          => ((Natural, Natural) -> f Natural) -> NonEmpty (a, Ratio Natural) -> f a
+weighted' range aps = flip go aps . (% b) <$> range (0, b - 1)
+  where b = lcms $ denominator . snd <$> aps
+        go x = NE.uncons & \ case ((a, _), Nothing) -> a
+                                  ((a, p), Just aps) -> bool (go (x - p) aps) a (x < p)
+
+lcms :: NonEmpty Natural -> Natural
+lcms = liftA2 div product (foldr' gcd 0)
