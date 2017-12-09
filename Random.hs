@@ -48,8 +48,13 @@ uniformM = liftUniform uniformNativeM
 
 instance {-# OVERLAPPABLE #-} (Bounded a, Enum a, Bounded b, Enum b) => Uniform b a where
     liftUniform = untilJust
-                . fmap (toEnumMay' . foldr (\ m n -> card @b * n + fromEnum' m) 0)
-                . replicateA @_ @[] ((card @a + card @b - 1) `div` card @b)
+                . fmap (toEnumMayWrap' . foldr (\ m n -> card @b * n + fromEnum' m) 0)
+                . replicateA @_ @[] r
+      where toEnumMayWrap' :: Natural -> Maybe a
+            toEnumMayWrap' n | n > r * card @b `div` card @a * card @a = Nothing
+                             | otherwise = toEnumMay' (n `div` card @a)
+
+            r = (card @a + card @b - 1) `div` card @b
 
 instance Uniform Void a where
     liftUniform = fmap $ \ case
