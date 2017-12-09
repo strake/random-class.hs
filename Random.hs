@@ -57,9 +57,6 @@ uniformM = liftUniform uniformNativeM
 instance {-# OVERLAPPABLE #-} (Bounded a, Enum a) => Uniform a where
     liftUniform = range' (minBound, maxBound)
 
-instance Uniform () where
-    liftUniform _ = pure ()
-
 range :: (Gen g, Bounded (Native g), Enum (Native g), Enum a) => (a, a) -> M.State g a
 range = flip range' uniformNative
 
@@ -80,7 +77,8 @@ range' (a, b) = untilJust
         card_a = L.genericLength [a..b]
 
 {-# INLINE[1] range' #-}
-{-# RULES "range'" range' = pure id #-}
+{-# RULES "range'/()" range' = (pure . pure . pure) () #-}
+{-# RULES "range'"    range' = pure id #-}
 
 weighted :: (Gen g, Bounded (Native g), Enum (Native g), Uniform a)
          => NonEmpty (a, Ratio Natural) -> M.State g a
