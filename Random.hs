@@ -52,3 +52,6 @@ instance {-# OVERLAPPABLE #-} (Bounded a, Enum a, Bounded b, Enum b) => Uniform 
 
 instance Uniform Void a where
     liftUniform = fmap $ \ case
+
+instance Uniform a () where
+    liftUniform = (() <$)
